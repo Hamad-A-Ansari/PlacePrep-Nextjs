@@ -197,11 +197,11 @@
     @apply w-full;
 
     .label {
-      @apply !text-light-100 !font-normal;
+      @apply !text-light-100 !font-bold !px-1;
     }
 
     .input {
-      @apply !bg-dark-200 !rounded-full !min-h-12 !px-5 placeholder:!text-light-100;
+      @apply !bg-dark-200  !rounded-xl !min-h-10 !px-3 placeholder:!text-light-100 !font-normal;
     }
 
     .btn {
