@@ -272,7 +272,7 @@
   }
 
   .interviews-section {
-    @apply flex flex-wrap gap-4 max-lg:flex-col w-full items-stretch;
+    @apply flex flex-wrap gap-4 max-sm:flex-col w-full items-center md:ml-5;
   }
 
   .interview-text {
@@ -291,7 +291,7 @@
     @apply dark-gradient rounded-2xl min-h-full flex flex-col p-6 relative overflow-hidden gap-10 justify-between;
 
     .badge-text {
-      @apply text-sm font-semibold capitalize;
+      @apply text-sm font-semibold capitalize text-white/95;
     }
   }
 }
