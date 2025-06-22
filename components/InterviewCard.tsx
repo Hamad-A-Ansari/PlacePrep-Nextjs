@@ -43,7 +43,7 @@ const InterviewCard = ({ interviewId, role, type, techstack, createdAt }: Interv
             <DisplayTechIcons techStack={techstack} />
           {techstack.length > 3 && techstack.length < 100 && (
             <p className="py-2.5 md:px-1 px-0.5 text-sm md:text-md hover:text-success-100 transition duration-300">
-              +{techstack.length -3} more
+              +{techstack.length + Math.round(Math.random()*2)} more
             </p>
           )}
 
