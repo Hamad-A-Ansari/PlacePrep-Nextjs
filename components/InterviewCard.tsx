@@ -52,7 +52,7 @@ const InterviewCard = ({ interviewId, role, type, techstack, createdAt }: Interv
             <Link href={
               feedback? `/interview/${interviewId}/feedback` : `interview/${interviewId}`
             }>
-              {true ? 'Check Feedback' : 'View'}
+              {feedback ? 'Check Feedback' : 'View'}
             </Link>
           </Button>
         </div>
