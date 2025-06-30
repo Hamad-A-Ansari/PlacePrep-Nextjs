@@ -357,13 +357,13 @@ export const generator: CreateWorkflowDTO = {
         "messages": [
           {
             "type": "request-start",
-            "content": "Please hold on. I am sending a request to the app.",
+            "content": "Please hold on, while I am sending a request to the app for Generating the Interview.",
             "blocking": true
           },
           {
             "role": "assistant",
             "type": "request-complete",
-            "content": "The request has been sent and your interview has been generated. Thank you for the call! Bye!",
+            "content": "The request has been sent and your interview has been generated. Thank you for the call! Bye, Bye!",
             "endCallAfterSpokenEnabled": true
           },
           {
