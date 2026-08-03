@@ -8,6 +8,14 @@ import { cn } from "@/lib/utils";
 import { vapi } from "@/lib/vapi.sdk";
 import { interviewer, generator } from "@/constants";
 import { createFeedback } from "@/lib/actions/general.action";
+import type { AssistantOverrides } from "@vapi-ai/web/dist/api";
+
+// The bundled SDK types declare clientMessages/serverMessages as a single
+// value rather than an array (a known upstream type bug - the API and the
+// SDK's own doc examples both use arrays). Alias the element types so we
+// can pass arrays without silencing type-checking elsewhere.
+type ClientMessageType = AssistantOverrides["clientMessages"];
+type ServerMessageType = AssistantOverrides["serverMessages"];
 
 enum CallStatus {
   INACTIVE = "INACTIVE",
@@ -118,19 +126,19 @@ const Agent = ({
     setCallStatus(CallStatus.CONNECTING);
 
     if (type === "generate") {
-      await vapi.start(
-        undefined,
-        {
-          variableValues: {
-            username: userName,
-            userid: userId,
-          },
-          clientMessages: ["transcript"],
-          serverMessages: [],
+      // `generator` is now a CreateAssistantDTO (Vapi Workflows are
+      // deprecated), so it's passed as the first arg like `interviewer`.
+      // Note: clientMessages/serverMessages are typed as a single value in
+      // the bundled SDK, but the API accepts (and the SDK's own docs show)
+      // an array - cast to work around the outdated type declaration.
+      await vapi.start(generator, {
+        variableValues: {
+          username: userName,
+          userid: userId,
         },
-          undefined,
-          generator
-      );
+        clientMessages: ["transcript"] as unknown as ClientMessageType,
+        serverMessages: [] as unknown as ServerMessageType,
+      });
     } else {
       let formattedQuestions = "";
       if (questions) {
@@ -143,8 +151,8 @@ const Agent = ({
         variableValues: {
           questions: formattedQuestions,
         },
-        clientMessages: ["transcript"],
-        serverMessages: [],
+        clientMessages: ["transcript"] as unknown as ClientMessageType,
+        serverMessages: [] as unknown as ServerMessageType,
       });
     }
   };
@@ -176,7 +184,7 @@ const Agent = ({
         <div className="card-border">
           <div className="card-content">
             <Image
-              src="/user-avatar.png"
+              src="/user-avatar.jpg"
               alt="profile-image"
               width={539}
               height={539}

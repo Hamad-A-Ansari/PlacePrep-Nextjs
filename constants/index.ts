@@ -1,6 +1,18 @@
 
 import { z } from "zod";
-import { CreateAssistantDTO, CreateWorkflowDTO } from "@vapi-ai/web/dist/api";
+import {
+  CreateAssistantDTO,
+  CreateApiRequestToolDTO,
+  CreateEndCallToolDTO,
+} from "@vapi-ai/web/dist/api";
+
+// The Vapi API supports a top-level `parameters` array on apiRequest/function
+// tools for injecting server-trusted, LLM-invisible values (static params).
+// The bundled SDK types don't expose this field yet, so we widen it locally.
+// See: https://docs.vapi.ai/tools/static-variables-and-aliases
+type ApiRequestToolWithStaticParams = CreateApiRequestToolDTO & {
+  parameters?: { key: string; value: unknown }[];
+};
 
 export const mappings = {
   "react.js": "react",
@@ -231,195 +243,120 @@ export const dummyInterviews: Interview[] = [
 ];
 
 
-export const generator: CreateWorkflowDTO = {
-  "name": "ha_interview_generation",
-  "nodes": [
+// Vapi Workflows are deprecated (retiring August 18, 2026). This flow is a
+// simple, linear, one-directional conversation (collect info -> call API ->
+// end call), so per Vapi's own migration guidance it maps to a single
+// Assistant with chained tools rather than a multi-assistant Squad.
+// See: https://docs.vapi.ai/workflows/legacy-migration
+
+const generateInterviewTool: ApiRequestToolWithStaticParams = {
+  type: "apiRequest",
+  method: "POST",
+  name: "getUserData",
+  description:
+    "Sends the collected interview preferences to the app to generate the interview questions.",
+  url:
+    process.env.NEXT_PUBLIC_VAPI_GENERATE_URL ??
+    "https://place-prep-nextjs.vercel.app/api/vapi/generate",
+  // Fields the LLM fills in from what the caller said.
+  body: {
+    type: "object",
+    required: ["role", "type", "level", "amount", "techstack"],
+    properties: {
+      role: {
+        type: "string",
+        description: "What role would you like to train for?",
+      },
+      type: {
+        type: "string",
+        description:
+          "Are you aiming for a technical, behavioral or mixed interview?",
+      },
+      level: {
+        type: "string",
+        description: "The job experience level.",
+      },
+      techstack: {
+        type: "string",
+        description: "List of technologies to cover during the job interview.",
+      },
+      amount: {
+        type: "number",
+        description: "How many questions would you like prepared?",
+      },
+    },
+  },
+  // userid comes from the call session (assistantOverrides.variableValues),
+  // never from the LLM/caller - keeps it out of the model-facing schema.
+  parameters: [{ key: "userid", value: "{{ userid }}" }],
+  messages: [
     {
-      "name": "introduction",
-      "type": "conversation",
-      "isStart": true,
-      "metadata": {
-        "position": {
-          "x": -2592.121616309939,
-          "y": 333.0270874877679
-        }
-      },
-      "prompt": "Greet the user. Inform them that you will get some information from them, to create a perfect interview. Ask the caller for data required to extract. Ask the questions one by one, and await an answer.",
-      "model": {
-        "model": "gpt-4o",
-        "provider": "openai",
-        "maxTokens": 250,
-        "temperature": 0.3
-      },
-      "variableExtractionPlan": {
-        "output": [
-          {
-            "enum": [],
-            "type": "string",
-            "title": "role",
-            "description": "What role would you like to train for?"
-          },
-          {
-            "enum": [],
-            "type": "string",
-            "title": "type",
-            "description": "Are you aiming for a technical, behavioral or mixed interview?"
-          },
-          {
-            "enum": [],
-            "type": "string",
-            "title": "level",
-            "description": "The job experience level."
-          },
-          {
-            "enum": [],
-            "type": "string",
-            "title": "techstack",
-            "description": "List of technologies to cover during the job interview?"
-          },
-          {
-            "enum": [],
-            "type": "number",
-            "title": "amount",
-            "description": "How many questions would you like me to prepare for you?"
-          }
-        ]
-      },
-      "messagePlan": {
-        "firstMessage": ""
-      }
+      type: "request-start",
+      content:
+        "Please hold on, while I am sending a request to the app for Generating the Interview.",
+      blocking: true,
     },
     {
-      "name": "apiRequest_1751199143889",
-      "type": "tool",
-      "metadata": {
-        "position": {
-          "x": -1922.8761586674116,
-          "y": 402.63794570516745
-        }
-      },
-      "tool": {
-        "url": "https://place-prep-nextjs.vercel.app/api/vapi/generate",
-        "body": {
-          "type": "object",
-          "required": [
-            "role",
-            "type",
-            "level",
-            "amount",
-            "userid",
-            "techstack"
-          ],
-          "properties": {
-            "role": {
-              "type": "string",
-              "value": "{{ role }}",
-              "description": ""
-            },
-            "type": {
-              "type": "string",
-              "value": "{{ type }}",
-              "description": ""
-            },
-            "level": {
-              "type": "string",
-              "value": "{{ level }}",
-              "description": ""
-            },
-            "amount": {
-              "type": "number",
-              "value": "{{ amount }}",
-              "description": ""
-            },
-            "userid": {
-              "type": "string",
-              "value": "{{ userid }}",
-              "description": ""
-            },
-            "techstack": {
-              "type": "string",
-              "value": "{{ techstack }}",
-              "description": ""
-            }
-          }
-        },
-        "name": "getUserData",
-        "type": "apiRequest",
-        "method": "POST",
-        "function": {
-          "name": "untitled_tool",
-          "parameters": {
-            "type": "object",
-            "required": [],
-            "properties": {}
-          }
-        },
-        "messages": [
-          {
-            "type": "request-start",
-            "content": "Please hold on, while I am sending a request to the app for Generating the Interview.",
-            "blocking": true
-          },
-          {
-            "role": "assistant",
-            "type": "request-complete",
-            "content": "The request has been sent and your interview has been generated. Thank you for the call! Bye, Bye!",
-            "endCallAfterSpokenEnabled": true
-          },
-          {
-            "type": "request-failed",
-            "content": "Oops! Looks like something went wrong when sending the data to the app! Please try again.",
-            "endCallAfterSpokenEnabled": true
-          }
-        ]
-      }
+      role: "assistant",
+      type: "request-complete",
+      content:
+        "The request has been sent and your interview has been generated. Thank you for the call! Bye, Bye!",
+      endCallAfterSpokenEnabled: true,
     },
     {
-      "name": "hangup_1751199613907",
-      "type": "tool",
-      "metadata": {
-        "position": {
-          "x": -2041.0747661392984,
-          "y": 661.7206724765698
-        }
-      },
-      "tool": {
-        "type": "endCall",
-        "function": {
-          "name": "untitled_tool",
-          "parameters": {
-            "type": "object",
-            "required": [],
-            "properties": {}
-          }
-        },
-        "messages": [
-          {
-            "type": "request-start",
-            "content": "Everything has been generated. I'll redirect you to the dashboard now, thanks for the call!!",
-            "blocking": true
-          }
-        ]
-      }
-    }
+      type: "request-failed",
+      content:
+        "Oops! Looks like something went wrong when sending the data to the app! Please try again.",
+      endCallAfterSpokenEnabled: true,
+    },
   ],
-  "edges": [
+};
+
+const endCallTool: CreateEndCallToolDTO = {
+  type: "endCall",
+  messages: [
     {
-      "from": "introduction",
-      "to": "apiRequest_1751199143889",
-      "condition": {
-        "type": "ai",
-        "prompt": "If user provided all the data to be extracted."
-      }
+      type: "request-start",
+      content:
+        "Everything has been generated. I'll redirect you to the dashboard now, thanks for the call!!",
+      blocking: true,
     },
-    {
-      "from": "apiRequest_1751199143889",
-      "to": "hangup_1751199613907",
-      "condition": {
-        "type": "ai",
-        "prompt": ""
-      }
-    }
   ],
-  "globalPrompt": "You are a voice assistant helping with creating new AI interviewers. Your task is to collect data from the user. Remember that this is a voice conversation - do not use any special characters."
-}
+};
+
+export const generator: CreateAssistantDTO = {
+  name: "ha_interview_generation",
+  firstMessage:
+    "Hi! I'll get some information from you to create the perfect interview.",
+  transcriber: {
+    provider: "deepgram",
+    model: "nova-2",
+    language: "en",
+  },
+  voice: {
+    provider: "11labs",
+    voiceId: "sarah",
+  },
+  model: {
+    provider: "openai",
+    model: "gpt-4o",
+    temperature: 0.3,
+    maxTokens: 250,
+    tools: [generateInterviewTool, endCallTool],
+    messages: [
+      {
+        role: "system",
+        content: `You are a voice assistant helping create a new AI interviewer. Your task is to collect the following data from the user, one question at a time, and wait for their answer before moving to the next:
+- role: What role would you like to train for?
+- type: Are you aiming for a technical, behavioral or mixed interview?
+- level: The job experience level.
+- techstack: List of technologies to cover during the job interview.
+- amount: How many questions would you like prepared?
+
+Once all fields have been collected, call the getUserData function with the collected values. After the app confirms the interview was generated (or if it fails), use the endCall function to end the call.
+
+Remember that this is a voice conversation - do not use any special characters.`,
+      },
+    ],
+  },
+};

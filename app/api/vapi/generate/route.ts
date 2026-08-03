@@ -1,18 +1,22 @@
-import { generateText } from "ai"
-import { google } from "@ai-sdk/google"
+import { generateText } from "ai";
+import { google } from "@ai-sdk/google";
 import { getRandomInterviewCover } from "@/lib/utils";
-import { db } from "@/firebase/admin";
+import { createAdminClient } from "@/lib/supabase/server";
+
+// Configurable so the model can be swapped later without a code change.
+const QUESTION_GEN_MODEL =
+  process.env.GEMINI_QUESTION_MODEL ?? "gemini-2.0-flash-001";
 
 export async function GET() {
-  return Response.json({ success: true, data: 'Thank You'}, {status: 200});
+  return Response.json({ success: true, data: "Thank You" }, { status: 200 });
 }
 
-export async function POST(request:Request) {
-    const { type, role, level, techstack, amount, userid } = await request.json();
+export async function POST(request: Request) {
+  const { type, role, level, techstack, amount, userid } = await request.json();
 
-    try {
-      const { text: questions } = await generateText({
-      model: google("gemini-2.0-flash-001"),
+  try {
+    const { text: questions } = await generateText({
+      model: google(QUESTION_GEN_MODEL),
       prompt: `Prepare questions for a job interview.
         The job role is ${role}.
         The job experience level is ${level}.
@@ -28,25 +32,25 @@ export async function POST(request:Request) {
     `,
     });
 
-    const interview = {
-      role: role,
-      type: type,
-      level: level,
+    const supabase = createAdminClient();
+
+    const { error } = await supabase.from("interviews").insert({
+      role,
+      type,
+      level,
       techstack: techstack.split(","),
       questions: JSON.parse(questions),
-      userId: userid,
+      user_id: userid,
       finalized: true,
-      coverImage: getRandomInterviewCover(),
-      createdAt: new Date().toISOString(),
-    };
+      cover_image: getRandomInterviewCover(),
+    });
 
-    await db.collection("interviews").add(interview);
+    if (error) throw error;
 
-    return Response.json({ success: true }, {status: 200});
+    return Response.json({ success: true }, { status: 200 });
+  } catch (error) {
+    console.error(error);
 
-    } catch (error) {
-      console.error(error);
-
-      return Response.json({success: false, error}, {status: 500});
-    }
+    return Response.json({ success: false, error }, { status: 500 });
+  }
 }
