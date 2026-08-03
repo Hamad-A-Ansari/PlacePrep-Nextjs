@@ -1,28 +1,63 @@
 "use server";
 
-import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 
-// Kick off the Google OAuth flow. Called from a Server Action triggered by
-// the client (AuthForm), which then redirects the browser to the returned URL.
-export async function signInWithGoogle() {
+// Create a new account with email/password. The name is stored in
+// user_metadata (Supabase Auth has no separate users table by default).
+export async function signUp(params: SignUpParams) {
+  const { name, email, password } = params;
   const supabase = await createClient();
-  const headersList = await headers();
-  const origin = headersList.get("origin");
 
-  const { data, error } = await supabase.auth.signInWithOAuth({
-    provider: "google",
+  const { error } = await supabase.auth.signUp({
+    email,
+    password,
     options: {
-      redirectTo: `${origin}/auth/callback`,
+      data: { full_name: name },
     },
   });
 
   if (error) {
-    console.error("Error starting Google sign-in:", error);
-    return { success: false, message: "Failed to start Google sign-in." };
+    console.error("Error creating user:", error);
+
+    if (error.message.toLowerCase().includes("already registered")) {
+      return {
+        success: false,
+        message: "This email is already in use.",
+      };
+    }
+
+    return {
+      success: false,
+      message: "Failed to create account. Please try again.",
+    };
   }
 
-  return { success: true, url: data.url };
+  return {
+    success: true,
+    message: "Account created successfully. Please sign in.",
+  };
+}
+
+// Sign in with email/password. Sets the Supabase session cookie.
+export async function signIn(params: SignInParams) {
+  const { email, password } = params;
+  const supabase = await createClient();
+
+  const { error } = await supabase.auth.signInWithPassword({
+    email,
+    password,
+  });
+
+  if (error) {
+    console.log(error);
+
+    return {
+      success: false,
+      message: "Invalid email or password. Please try again.",
+    };
+  }
+
+  return { success: true };
 }
 
 // Sign out the current user by clearing their Supabase session.

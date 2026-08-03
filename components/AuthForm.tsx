@@ -1,35 +1,78 @@
 "use client";
 
+import { z } from "zod";
 import Link from "next/link";
 import Image from "next/image";
 import { toast } from "sonner";
-import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { useRouter } from "next/navigation";
+import { zodResolver } from "@hookform/resolvers/zod";
 
+import { Form } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
-import { signInWithGoogle } from "@/lib/actions/auth.action";
+
+import { signIn, signUp } from "@/lib/actions/auth.action";
+import FormField from "./FormField";
+
+const authFormSchema = (type: FormType) => {
+  return z.object({
+    name: type === "sign-up" ? z.string().min(3) : z.string().optional(),
+    email: z.string().email(),
+    password: z.string().min(6),
+  });
+};
 
 const AuthForm = ({ type }: { type: FormType }) => {
-  const [isLoading, setIsLoading] = useState(false);
-  const isSignIn = type === "sign-in";
+  const router = useRouter();
 
-  const handleGoogleSignIn = async () => {
-    setIsLoading(true);
+  const formSchema = authFormSchema(type);
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      name: "",
+      email: "",
+      password: "",
+    },
+  });
+
+  const onSubmit = async (data: z.infer<typeof formSchema>) => {
     try {
-      const result = await signInWithGoogle();
+      if (type === "sign-up") {
+        const { name, email, password } = data;
 
-      if (!result.success || !result.url) {
-        toast.error(result.message ?? "Failed to sign in with Google.");
-        setIsLoading(false);
-        return;
+        const result = await signUp({
+          name: name!,
+          email,
+          password,
+        });
+
+        if (!result.success) {
+          toast.error(result.message);
+          return;
+        }
+
+        toast.success("Account created successfully. Please sign in.");
+        router.push("/sign-in");
+      } else {
+        const { email, password } = data;
+
+        const result = await signIn({ email, password });
+
+        if (!result.success) {
+          toast.error(result.message);
+          return;
+        }
+
+        toast.success("Signed in successfully.");
+        router.push("/");
       }
-
-      window.location.href = result.url;
     } catch (error) {
       console.log(error);
       toast.error(`There was an error: ${error}`);
-      setIsLoading(false);
     }
   };
+
+  const isSignIn = type === "sign-in";
 
   return (
     <div className="card-border lg:min-w-[450px]">
@@ -43,18 +86,42 @@ const AuthForm = ({ type }: { type: FormType }) => {
 
         <h3>Practice job interviews with AI</h3>
 
-        <Button
-          className="btn w-full flex items-center justify-center gap-2"
-          type="button"
-          disabled={isLoading}
-          onClick={handleGoogleSignIn}
-        >
-          {isLoading
-            ? "Redirecting to Google..."
-            : isSignIn
-              ? "Sign in with Google"
-              : "Sign up with Google"}
-        </Button>
+        <Form {...form}>
+          <form
+            onSubmit={form.handleSubmit(onSubmit)}
+            className="w-full space-y-6 mt-4 form"
+          >
+            {!isSignIn && (
+              <FormField
+                control={form.control}
+                name="name"
+                label="Name"
+                placeholder="Your Name"
+                type="text"
+              />
+            )}
+
+            <FormField
+              control={form.control}
+              name="email"
+              label="Email"
+              placeholder="Your email address"
+              type="email"
+            />
+
+            <FormField
+              control={form.control}
+              name="password"
+              label="Password"
+              placeholder="Enter your password"
+              type="password"
+            />
+
+            <Button className="btn" type="submit">
+              {isSignIn ? "Sign In" : "Create an Account"}
+            </Button>
+          </form>
+        </Form>
 
         <p className="text-center">
           {isSignIn ? "No account yet?" : "Have an account already?"}
